@@ -506,6 +506,10 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_INPUT:
             if (app) app->input.handleRawInput(lParam);
+            // Foreground raw input requires default processing for system cleanup.
+            if (GET_RAWINPUT_CODE_WPARAM(wParam) == RIM_INPUT) {
+                DefWindowProcW(hwnd, msg, wParam, lParam);
+            }
             return 0;
 
         case WM_TIMER:
