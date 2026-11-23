@@ -55,7 +55,9 @@ enum MenuCmd : UINT {
     CMD_SCALE_150,
     CMD_DEMO_BURST,
     CMD_RESET_POS,
-    CMD_QUIT
+    CMD_QUIT,
+    CMD_COAT_SLENDER_TUXEDO,
+    CMD_EYE_SAGE
 };
 
 struct AppState {
@@ -294,6 +296,7 @@ void showContextMenu(AppState& app, POINT screenPt) {
     AppendMenuW(coatMenu, MF_STRING | (app.settings.coatTheme == CatCoatTheme::Siamese ? MF_CHECKED : 0), CMD_COAT_SIAMESE, L"\u6316\u7164\u66B9\u7F57\u732B");
     AppendMenuW(coatMenu, MF_STRING | (app.settings.coatTheme == CatCoatTheme::Shorthair ? MF_CHECKED : 0), CMD_COAT_SHORTHAIR, L"美短（银虎斑加白）");
     AppendMenuW(coatMenu, MF_STRING | (app.settings.coatTheme == CatCoatTheme::OrangeWhite ? MF_CHECKED : 0), CMD_COAT_ORANGE_WHITE, L"橘白猫");
+    AppendMenuW(coatMenu, MF_STRING | (app.settings.coatTheme == CatCoatTheme::SlenderTuxedo ? MF_CHECKED : 0), CMD_COAT_SLENDER_TUXEDO, L"黑白猫（大耳小圆脸）");
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)coatMenu, L"\u732B\u54AA\u76AE\u80A4");
 
     // Keyboard Theme submenu
@@ -311,6 +314,7 @@ void showContextMenu(AppState& app, POINT screenPt) {
     AppendMenuW(eyeMenu, MF_STRING | (app.settings.eyeTheme == EyeColorTheme::IceCyan ? MF_CHECKED : 0), CMD_EYE_CYAN, L"\u51B0\u6676\u6D45\u84DD");
     AppendMenuW(eyeMenu, MF_STRING | (app.settings.eyeTheme == EyeColorTheme::SoftAmber ? MF_CHECKED : 0), CMD_EYE_SOFT_AMBER, L"柔和琥珀");
     AppendMenuW(eyeMenu, MF_STRING | (app.settings.eyeTheme == EyeColorTheme::ReferenceHazel ? MF_CHECKED : 0), CMD_EYE_REFERENCE_HAZEL, L"淡金青绿");
+    AppendMenuW(eyeMenu, MF_STRING | (app.settings.eyeTheme == EyeColorTheme::SageGreen ? MF_CHECKED : 0), CMD_EYE_SAGE, L"鼠尾草绿");
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)eyeMenu, L"\u77B3\u8272\u5207\u6362");
 
     // Scale submenu
@@ -366,6 +370,15 @@ void showContextMenu(AppState& app, POINT screenPt) {
             break;
         case CMD_TOGGLE_PET:
             app.settings.petInteraction = !app.settings.petInteraction;
+            app.settings.saveToRegistry();
+            break;
+        case CMD_COAT_SLENDER_TUXEDO:
+            app.settings.coatTheme = CatCoatTheme::SlenderTuxedo;
+            app.settings.eyeTheme = EyeColorTheme::SageGreen;
+            app.settings.saveToRegistry();
+            break;
+        case CMD_EYE_SAGE:
+            app.settings.eyeTheme = EyeColorTheme::SageGreen;
             app.settings.saveToRegistry();
             break;
         case CMD_COAT_BLACK:
@@ -455,7 +468,7 @@ void tickAndRender(AppState& app) {
                 (float)(cur.x - wr.left) / (float)w * CatPhysics::CanvasWidth,
                 (float)(cur.y - wr.top)  / (float)h * CatPhysics::CanvasHeight
             };
-            CatHitZone zone = CatRenderer::hitTest(cp, app.physics);
+            CatHitZone zone = CatRenderer::hitTest(cp, app.physics, app.settings.coatTheme);
             if (zone == CatHitZone::Head || zone == CatHitZone::Body) {
                 if (app.hasLastHover) {
                     float d = std::hypot(cp.x - app.lastHoverCanvas.x, cp.y - app.lastHoverCanvas.y);

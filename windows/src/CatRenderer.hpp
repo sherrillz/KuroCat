@@ -19,12 +19,26 @@ class CatRenderer {
 public:
     static constexpr float RadToDeg = 57.2957795f;
 
-    static CatHitZone hitTest(Pt p, const CatPhysics& physics) {
+    static CatHitZone hitTest(Pt p, const CatPhysics& physics, CatCoatTheme coat = CatCoatTheme::ClassicBlack) {
         float cx = CatPhysics::SeatAnchor.x + physics.bodyShiftX.value;
         float breath = std::sin(physics.time * 2.1f) * 1.6f;
         Pt headCenter = { cx + physics.bodyTilt.value * 36.0f + physics.headYaw.value * 7.5f,
                           126.0f + physics.headOffsetY.value + physics.headPitch.value * 4.8f + breath * 1.1f };
 
+        if (coat == CatCoatTheme::SlenderTuxedo) {
+            headCenter.y -= 14.0f;
+            float dx=p.x-headCenter.x, dy=p.y-headCenter.y;
+            float c=std::cos(physics.headTilt.value), s=std::sin(physics.headTilt.value);
+            float hx=(dx*c+dy*s)/39.0f, hy=(-dx*s+dy*c)/34.0f;
+            if (hx*hx+hy*hy <= 1.0f) return CatHitZone::Head;
+            float sy=physics.bodySquash.value, sx=1+(1-sy)*0.55f;
+            dx=p.x-cx; dy=p.y-CatPhysics::SeatAnchor.y;
+            c=std::cos(physics.bodyTilt.value); s=std::sin(physics.bodyTilt.value);
+            float bx=(dx*c+dy*s)/(32.0f*sx), by=((-dx*s+dy*c)/sy+34.0f)/51.0f;
+            if (bx*bx+by*by <= 1.0f) return CatHitZone::Body;
+            if (p.x >= 58 && p.x <= 294 && p.y >= 232 && p.y <= 296) return CatHitZone::Body;
+            return CatHitZone::None;
+        }
         float hdx = (p.x - headCenter.x) / 48.0f;
         float hdy = (p.y - headCenter.y) / 42.0f;
         if (hdx * hdx + hdy * hdy <= 1.0f) return CatHitZone::Head;
@@ -57,6 +71,14 @@ public:
 
         // 2. Mini 65% Mechanical Keyboard (facing cat) + Backlit Glow
         drawKeyboard(g, physics, settings.keyboardTheme, settings.eyeTheme);
+
+        if (settings.coatTheme == CatCoatTheme::SlenderTuxedo) {
+            headCenter.y -= 14.0f;
+            drawSlenderTuxedo(g, seatX, seatY, headCenter, physics, settings);
+            if (settings.showKeyBadges) drawFloatingKeycaps(g, physics);
+            drawSparkles(g, physics, settings.eyeTheme);
+            return;
+        }
 
         // 3. Tail
         drawTail(g, seatX, seatY, physics, settings.coatTheme);
@@ -102,9 +124,9 @@ private:
     static Gdiplus::Color rgb(unsigned int hex, BYTE a = 255) { return Gdiplus::Color(a, (hex >> 16) & 255, (hex >> 8) & 255, hex & 255); }
     static Gdiplus::Color bodyColor(CatCoatTheme c) { return c == CatCoatTheme::Shorthair ? rgb(0xC2C5C1) : (c == CatCoatTheme::OrangeWhite ? rgb(0xF2EEE4) : catBlack()); }
     static Gdiplus::Color limbColor(CatCoatTheme c) { return c == CatCoatTheme::OrangeWhite ? rgb(0xD8AA73) : bodyColor(c); }
-    static Gdiplus::Color pawColor(CatCoatTheme c) { return patterned(c) ? rgb(0xF2EEE4) : (c == CatCoatTheme::Siamese ? siamesePoint() : catBlack()); }
+    static Gdiplus::Color pawColor(CatCoatTheme c) { return (patterned(c) || c == CatCoatTheme::SlenderTuxedo) ? rgb(0xF2EEE4) : (c == CatCoatTheme::Siamese ? siamesePoint() : catBlack()); }
     static Gdiplus::Color earTailColor(CatCoatTheme c) { return c == CatCoatTheme::Siamese ? siamesePoint() : limbColor(c); }
-    static Gdiplus::Color creaseColor(CatCoatTheme c, BYTE a = 255) { return patterned(c) ? rgb(0x8B8171, (BYTE)(a*0.60f)) : contourMint(a); }
+    static Gdiplus::Color creaseColor(CatCoatTheme c, BYTE a = 255) { return (patterned(c) || c == CatCoatTheme::SlenderTuxedo) ? rgb(0x8B8171, (BYTE)(a*0.60f)) : contourMint(a); }
     static Gdiplus::PointF coatMarkPoint(CoatPoint p, bool headSurface, bool skull, CatCoatTheme coat, float seatX, float seatY, Pt head, const CatPhysics& physics) {
         if (headSurface) {
             float depth=coat==CatCoatTheme::OrangeWhite ? 29.6f*std::sqrt(std::max(0.0f,1-p.x*p.x/(46*46)-p.y*p.y/(40*40))) : 27.5f;
@@ -131,6 +153,7 @@ private:
 
     static Gdiplus::Color eyePrimary(EyeColorTheme t, BYTE a = 255) {
         switch (t) {
+            case EyeColorTheme::SageGreen: return Gdiplus::Color(a, 166, 184, 144);
             case EyeColorTheme::NeonChartreuse: return Gdiplus::Color(a, 201, 242, 64);
             case EyeColorTheme::SiameseBlue:    return Gdiplus::Color(a, 94, 199, 250);
             case EyeColorTheme::WarmAmber:      return Gdiplus::Color(a, 250, 194, 56);
@@ -802,7 +825,7 @@ private:
                 REAL positions[3]={0,0.30f,1};gradient.SetInterpolationColors(colors,positions,3);
                 g.FillPath(&gradient,&limbPath);
             } else g.FillPath(&b, &limbPath);
-            if (!patterned(coat)) g.FillEllipse(&b, pawRect);
+            if (!patterned(coat) && coat != CatCoatTheme::SlenderTuxedo) g.FillEllipse(&b, pawRect);
             else {
                 std::vector<PointF> points; int first = (int)(steps*0.72f);
                 for (int i=first; i<=steps; ++i) points.push_back(leftEdge[i]);
@@ -866,6 +889,118 @@ private:
             Pen hp(sc, 1.35f);
             hp.SetStartCap(LineCapRound); hp.SetEndCap(LineCapRound); hp.SetLineJoin(LineJoinRound);
             g.DrawLines(&hp, hiEdge.data() + startIdx, endIdx - startIdx + 1);
+        }
+    }
+
+    // Photo-inspired skin, isolated from the four existing coat render paths.
+    // Uses the same spring state and paw targets as the original animation.
+    static void drawSlenderTuxedo(Gdiplus::Graphics& g, float seatX, float seatY,
+        Pt head, const CatPhysics& p, const CatSettings& settings) {
+        using namespace Gdiplus;
+        constexpr CatCoatTheme coat = CatCoatTheme::SlenderTuxedo;
+        const float sy=p.bodySquash.value, sx=1+(1-sy)*0.55f;
+        const float bc=std::cos(p.bodyTilt.value), bs=std::sin(p.bodyTilt.value);
+        const float hc=std::cos(p.headTilt.value), hs=std::sin(p.headTilt.value);
+        auto B = [&](float x, float y) -> PointF {
+            return {seatX+x*sx*bc-y*sy*bs, seatY+x*sx*bs+y*sy*bc};
+        };
+        auto H = [&](float x, float y) -> PointF {
+            return {head.x+x*hc-y*hs, head.y+x*hs+y*hc};
+        };
+        SolidBrush black(catBlack()), white(rgb(0xF2EEE4)), pink(rgb(0xDF999C));
+        drawTail(g,seatX,seatY,p,coat);
+
+        // Large ears retain the original yaw, pitch, fold and twitch motion.
+        GraphicsState ears=g.Save();
+        g.TranslateTransform(head.x,head.y);
+        g.RotateTransform(p.headTilt.value*RadToDeg);
+        g.ScaleTransform(1.32f,1.18f);
+        drawEar3D(g,true,p.headYaw.value*0.50f,p.headPitch.value*0.36f,
+            p.earFold.value,p.earTwitch.value*0.045f,coat);
+        drawEar3D(g,false,p.headYaw.value*0.50f,p.headPitch.value*0.36f,
+            p.earFold.value,-p.earTwitch.value*0.045f,coat);
+        g.Restore(ears);
+
+        GraphicsPath silhouette;
+        silhouette.AddBezier(H(0,-29),H(21,-29),H(38,-17),H(38,2));
+        silhouette.AddBezier(H(38,2),H(38,19),H(27,30),H(16,32));
+        silhouette.AddBezier(H(16,32),B(20,-65),B(32,-39),B(31,-8));
+        silhouette.AddBezier(B(31,-8),B(30,10),B(21,16),B(14,16));
+        silhouette.AddLine(B(14,16),B(-14,16));
+        silhouette.AddBezier(B(-14,16),B(-21,16),B(-30,10),B(-31,-8));
+        silhouette.AddBezier(B(-31,-8),B(-32,-39),B(-20,-65),H(-16,32));
+        silhouette.AddBezier(H(-16,32),H(-27,30),H(-38,19),H(-38,2));
+        silhouette.AddBezier(H(-38,2),H(-38,-17),H(-21,-29),H(0,-29));
+        silhouette.CloseFigure();
+        g.FillPath(&black,&silhouette);
+        GraphicsState clipped=g.Save();
+        g.SetClip(&silhouette,CombineModeIntersect);
+
+        // Bib follows the body; upper edge follows the moving jaw.
+        GraphicsPath bib;
+        bib.AddBezier(H(-15,25),H(-5,31),H(5,31),H(15,25));
+        bib.AddBezier(H(15,25),B(20,-51),B(13,-15),B(0,4));
+        bib.AddBezier(B(0,4),B(-13,-7),B(-20,-51),H(-15,25));
+        bib.CloseFigure();g.FillPath(&white,&bib);
+
+        // Markings and facial features share the same projected surface.
+        g.TranslateTransform(head.x,head.y);
+        g.RotateTransform(p.headTilt.value*RadToDeg);
+        g.ScaleTransform(0.78f,0.82f);
+        auto F = [&](float x,float y) -> PointF {
+            Pt q=projectHead3D(x,y,27.5f,p.headYaw.value*0.50f,p.headPitch.value*0.36f);
+            return {q.x,q.y};
+        };
+        GraphicsPath blaze;
+        blaze.AddBezier(F(2,-26),F(12,-24),F(8,-9),F(9,6));
+        blaze.AddBezier(F(9,6),F(22,14),F(34,14),F(45,17));
+        blaze.AddLine(F(45,17),F(50,48));
+        blaze.AddLine(F(50,48),F(-50,48));
+        blaze.AddLine(F(-50,48),F(-45,17));
+        blaze.AddBezier(F(-45,17),F(-29,14),F(-20,12),F(-9,7));
+        blaze.AddBezier(F(-9,7),F(-4,-4),F(-5,-16),F(2,-26));
+        blaze.CloseFigure();g.FillPath(&white,&blaze);
+        GraphicsPath chin;
+        chin.AddBezier(F(-6,29),F(-2,27),F(2,27),F(6,29));
+        chin.AddBezier(F(6,29),F(12,34),F(-12,34),F(-6,29));
+        chin.CloseFigure();g.FillPath(&black,&chin);
+        drawEye3D(g,true,p.headYaw.value*0.50f,p.headPitch.value*0.36f,p,settings.eyeTheme,coat);
+        drawEye3D(g,false,p.headYaw.value*0.50f,p.headPitch.value*0.36f,p,settings.eyeTheme,coat);
+        GraphicsPath nose;
+        PointF nosePoints[]={F(-4,17),F(4,17),F(0,21)};
+        nose.AddPolygon(nosePoints,3);g.FillPath(&pink,&nose);
+        Pen mouth(rgb(0x514443),0.8f);
+        g.DrawLine(&mouth,F(0,21),F(0,24));
+        GraphicsPath smile;
+        smile.AddBezier(F(-5,24),F(-2,27),F(2,27),F(5,24));
+        g.DrawPath(&mouth,&smile);
+        g.Restore(clipped);
+
+        // Whiskers extend outside the silhouette instead of being clipped.
+        GraphicsState whiskers=g.Save();
+        g.TranslateTransform(head.x,head.y);g.RotateTransform(p.headTilt.value*RadToDeg);
+        g.ScaleTransform(0.78f,0.82f);
+        drawWhiskers3D(g,p.headYaw.value*0.50f,p.headPitch.value*0.36f,p,coat);
+        g.Restore(whiskers);
+        for (float x : {-18.0f,18.0f}) {
+            if (x>0 && p.hindFootActive.value>=0.35f) continue;
+            PointF q=B(x,12);g.FillEllipse(&white,q.X-7.0f,q.Y-4.5f,14.0f,9.0f);
+        }
+        if (p.hindFootActive.value>0.03f) {
+            PointF q=B(18,2);Pt target=p.hindFoot.point();
+            drawLimb(g,{q.X,q.Y},{(q.X+target.x)*0.5f+8,(q.Y+target.y)*0.5f-8},
+                target,11,10,true,0.85f*p.hindFootActive.value,coat);
+        }
+        for (int side=0;side<2;++side) {
+            float sign=side==0 ? -1.0f : 1.0f;
+            bool idle=side==0 ? (!p.leftPawOnMouse && !p.leftPawTyping) : !p.rightPawTyping;
+            PointF shoulder=B(sign*14,-51), rest=B(sign*16,12);
+            Pt target=side==0 ? p.leftPaw.point() : p.rightPaw.point();
+            Pt oldRest=side==0 ? CatPhysics::LeftPawRest : CatPhysics::RightPawRest;
+            if (idle && std::hypot(target.x-oldRest.x,target.y-oldRest.y)<6)
+                target={rest.X,rest.Y};
+            Pt mid={(shoulder.X+target.x)*0.5f+sign*3,(shoulder.Y+target.y)*0.5f-4};
+            drawLimb(g,{shoulder.X,shoulder.Y},mid,target,12,12,side!=0,0.60f,coat);
         }
     }
 

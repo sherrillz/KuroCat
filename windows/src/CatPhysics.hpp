@@ -13,7 +13,8 @@ enum class CatCoatTheme : int {
     ClassicBlack = 0,
     Siamese = 1,
     Shorthair = 2,
-    OrangeWhite = 3
+    OrangeWhite = 3,
+    SlenderTuxedo = 4
 };
 
 enum class KeyboardTheme : int {
@@ -28,7 +29,8 @@ enum class EyeColorTheme : int {
     WarmAmber = 2,
     IceCyan = 3,
     SoftAmber = 4,
-    ReferenceHazel = 5
+    ReferenceHazel = 5,
+    SageGreen = 6
 };
 
 struct CatSettings {
@@ -58,9 +60,9 @@ struct CatSettings {
         fullClickThrough = readDword(L"FullClickThrough", 0) != 0;
         alwaysOnTop      = readDword(L"AlwaysOnTop", 1) != 0;
         scale            = std::clamp((float)readDword(L"ScalePct", 100) / 100.0f, 0.5f, 2.0f);
-        coatTheme        = (CatCoatTheme)std::clamp((int)readDword(L"CoatTheme", 0), 0, 3);
+        coatTheme        = (CatCoatTheme)std::clamp((int)readDword(L"CoatTheme", 0), 0, 4);
         keyboardTheme    = (KeyboardTheme)std::clamp((int)readDword(L"KeyboardTheme", 0), 0, 2);
-        eyeTheme         = (EyeColorTheme)std::clamp((int)readDword(L"EyeTheme", 0), 0, 5);
+        eyeTheme         = (EyeColorTheme)std::clamp((int)readDword(L"EyeTheme", 0), 0, 6);
         DWORD hasPos     = readDword(L"HasPos", 0);
         if (hasPos) {
             posX = (int)readDword(L"PosX", 0);
@@ -452,7 +454,8 @@ public:
         // 5. 2.5D Head Turning (Yaw + Pitch) & Eye Tracking (Windows screen Y is top-down!)
         bool typingRecently = !activeKeys.empty() || (now - engine.lastKeyActivityTime < 0.65);
         bool mouseMovedRecently = (now - engine.lastMouseMoveTime < 1.2);
-        Pt eyeOrigin = { SeatAnchor.x + bodyShiftX.value, 124.0f + headOffsetY.value };
+        Pt eyeOrigin = { SeatAnchor.x + bodyShiftX.value,
+            (settings.coatTheme == CatCoatTheme::SlenderTuxedo ? 110.0f : 124.0f) + headOffsetY.value };
 
         float winW = std::max(1.0f, (float)(windowRect.right - windowRect.left));
         float winScale = std::max(0.2f, winW / CanvasWidth);
